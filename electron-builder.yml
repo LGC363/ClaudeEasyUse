@@ -1,0 +1,30 @@
+appId: com.claudeeasyuse.app
+productName: ClaudeEasyUse
+copyright: MIT
+
+directories:
+  buildResources: resources
+  output: release
+
+files:
+  - out/**/*
+  - node_modules/**/*
+  - package.json
+
+win:
+  icon: resources/icon.ico
+  target:
+    - target: portable
+      arch:
+        - x64
+
+portable:
+  artifactName: ClaudeEasyUse-${version}-portable.exe
+
+# node-pty 是 native addon，需要在打包时 rebuild
+npmRebuild: true
+
+asar: true
+
+# 不需要代码签名（个人开源项目）
+forceCodeSigning: false
