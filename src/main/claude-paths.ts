@@ -1,4 +1,4 @@
-import * as fs from 'fs'
+﻿import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import { execSync } from 'child_process'
@@ -6,24 +6,28 @@ import { createLogger } from './logger'
 
 const logger = createLogger('ClaudePaths')
 
-// ─── Claude 配置目录 ──────────────────────────────────────────────────────────
-
 export function getClaudeConfigDir(): string {
-  // 支持 CLAUDE_CONFIG_DIR 环境变量覆盖（与 CLI 保持一致）
   if (process.env.CLAUDE_CONFIG_DIR) {
     return process.env.CLAUDE_CONFIG_DIR
   }
   return path.join(os.homedir(), '.claude')
 }
 
-// ─── Claude 可执行文件路径 ────────────────────────────────────────────────────
-
-let _claudePath: string | null | undefined = undefined // undefined = 未检测
+let _claudePath: string | null | undefined = undefined
 
 export function getClaudeExecutable(): string | null {
   if (_claudePath !== undefined) return _claudePath
 
-  // 1. 系统 PATH 查找（直接启动时可用）
+  const envClaudePath = process.env.CLAUDE_PATH?.trim()
+  if (envClaudePath) {
+    if (fs.existsSync(envClaudePath)) {
+      logger.info(`claude found via CLAUDE_PATH: ${envClaudePath}`)
+      _claudePath = envClaudePath
+      return _claudePath
+    }
+    logger.warn(`CLAUDE_PATH is set but file does not exist: ${envClaudePath}`)
+  }
+
   try {
     const result = execSync('where claude', { encoding: 'utf8', timeout: 3000 }).trim()
     const firstLine = result.split('\n')[0].trim()
@@ -33,11 +37,9 @@ export function getClaudeExecutable(): string | null {
       return _claudePath
     }
   } catch {
-    // where 失败说明不在系统 PATH，继续
+    // continue
   }
 
-  // 2. PowerShell 查找——读取完整用户 PATH（包含 npm 全局 bin）
-  // Electron GUI 启动时只继承注册表 PATH，npm 设置的用户 PATH 不在其中
   try {
     const ps = execSync(
       'powershell -NoProfile -Command "(Get-Command claude -ErrorAction SilentlyContinue).Source"',
@@ -49,10 +51,9 @@ export function getClaudeExecutable(): string | null {
       return _claudePath
     }
   } catch {
-    // PowerShell 不可用，继续
+    // continue
   }
 
-  // 3. 通过 npm prefix 定位全局 bin
   try {
     const prefix = execSync('npm config get prefix', { encoding: 'utf8', timeout: 3000 }).trim()
     if (prefix) {
@@ -61,20 +62,19 @@ export function getClaudeExecutable(): string | null {
         path.join(prefix, 'claude'),
         path.join(prefix, 'bin', 'claude'),
       ]
-      for (const c of npmCandidates) {
-        if (fs.existsSync(c)) {
-          logger.info(`claude found via npm prefix: ${c}`)
-          _claudePath = c
+      for (const candidate of npmCandidates) {
+        if (fs.existsSync(candidate)) {
+          logger.info(`claude found via npm prefix: ${candidate}`)
+          _claudePath = candidate
           return _claudePath
         }
       }
     }
   } catch {
-    // npm 不在 PATH 中，继续
+    // continue
   }
 
-  // 4. 已知 Windows 固定路径兜底
-  const candidates = [
+  const fixedCandidates = [
     path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'claude.cmd'),
     path.join(os.homedir(), 'AppData', 'Roaming', 'npm', 'claude'),
     path.join(os.homedir(), '.local', 'bin', 'claude.exe'),
@@ -84,7 +84,7 @@ export function getClaudeExecutable(): string | null {
     'C:\\Program Files (x86)\\Claude\\claude.exe',
   ]
 
-  for (const candidate of candidates) {
+  for (const candidate of fixedCandidates) {
     if (fs.existsSync(candidate)) {
       logger.info(`claude found at fixed path: ${candidate}`)
       _claudePath = candidate
@@ -97,43 +97,20 @@ export function getClaudeExecutable(): string | null {
   return null
 }
 
-// 重置缓存（用于测试或用户手动刷新）
 export function resetClaudeExecutableCache(): void {
   _claudePath = undefined
 }
 
-// ─── 项目 Slug 编解码 ─────────────────────────────────────────────────────────
-
-/**
- * 将项目路径转换为 Claude Code 使用的目录 slug 格式
- * 例：F:\CodeProjects\ClaudeEasyUse → F--CodeProjects-ClaudeEasyUse
- *
- * Claude CLI 的实际编码规则（通过观察得出）：
- * - 盘符冒号 ':' → '-'
- * - 反斜杠 '\' → '-'
- * - 正斜杠 '/' → '-'
- * - 空格 ' ' → '-'
- * - 多个连续 '-' 保留（不合并）
- */
 export function encodeProjectSlug(projectPath: string): string {
   return projectPath
     .replace(/[:\\/\s]/g, '-')
-    .replace(/^-+/, '') // 去掉开头的连字符
+    .replace(/^-+/, '')
 }
 
-/**
- * 从 slug 还原为显示用的路径（近似还原，用于 UI 显示）
- */
 export function decodeProjectSlug(slug: string): string {
-  // slug 格式：F--CodeProjects-X
-  // 第一个 '--' 对应 Windows 盘符后的 ':'
-  // 其余 '-' 对应路径分隔符
-  // 近似还原（不能完全确定 '-' 是否来自路径分隔符或原始目录名中的 '-'）
   const withColon = slug.replace('--', ':\\')
   return withColon.replace(/-/g, '\\')
 }
-
-// ─── 目录路径工具 ─────────────────────────────────────────────────────────────
 
 export function getProjectsDir(): string {
   return path.join(getClaudeConfigDir(), 'projects')
@@ -162,8 +139,6 @@ export function getInstalledPluginsPath(): string {
 export function getPluginsCacheDir(): string {
   return path.join(getClaudeConfigDir(), 'plugins', 'cache')
 }
-
-// ─── Claude 版本检测 ──────────────────────────────────────────────────────────
 
 export function getClaudeVersion(): string | null {
   const claudePath = getClaudeExecutable()

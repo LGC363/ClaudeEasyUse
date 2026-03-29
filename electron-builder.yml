@@ -1,4 +1,4 @@
-appId: com.claudeeasyuse.app
+﻿appId: com.claudeeasyuse.app
 productName: ClaudeEasyUse
 copyright: MIT
 
@@ -8,8 +8,14 @@ directories:
 
 files:
   - out/**/*
-  - node_modules/**/*
   - package.json
+  - "!**/*.map"
+  - "!**/*.ts"
+  - "!**/*.tsx"
+  - "!**/*.md"
+  - "!**/test/**"
+  - "!**/tests/**"
+  - "!**/__tests__/**"
 
 win:
   icon: resources/icon.ico
@@ -21,10 +27,7 @@ win:
 portable:
   artifactName: ClaudeEasyUse-${version}-portable.exe
 
-# node-pty 是 native addon，需要在打包时 rebuild
-npmRebuild: true
-
+# shipping defaults
+npmRebuild: false
 asar: true
-
-# 不需要代码签名（个人开源项目）
 forceCodeSigning: false

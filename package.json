@@ -10,8 +10,9 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "dist": "pnpm build && electron-builder",
-    "dist:portable": "pnpm build && electron-builder --win portable",
+    "dist": "npm run build && electron-builder",
+    "dist:portable": "npm run build && electron-builder --win portable --config.npmRebuild=false",
+    "dist:portable:zip": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-portable.ps1",
     "lint": "biome check .",
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit"
