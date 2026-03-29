@@ -29,20 +29,11 @@ jobs:
         shell: pwsh
         run: npm run dist:portable:zip
 
-      - name: Compute sha256
-        shell: pwsh
-        run: |
-          $zip = Get-ChildItem release\*win-x64-unpacked.zip | Select-Object -First 1
-          if (-not $zip) { throw 'Unpacked zip not found in release/' }
-          $hash = Get-FileHash -Algorithm SHA256 $zip.FullName
-          "$($hash.Hash)  $($zip.Name)" | Set-Content -Encoding utf8 release\SHA256SUMS.txt
-
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
             release/*win-x64-unpacked.zip
-            release/SHA256SUMS.txt
           generate_release_notes: true
           draft: false
           prerelease: false
