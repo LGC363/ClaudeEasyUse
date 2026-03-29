@@ -7,34 +7,24 @@ Write-Host '==> Building renderer/main/preload'
 npm run build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Write-Host '==> Building Windows portable exe'
-npx electron-builder --win portable --config.npmRebuild=false
+Write-Host '==> Building Windows unpacked app'
+npx electron-builder --win dir --config.npmRebuild=false
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $pkg = Get-Content package.json | ConvertFrom-Json
 $version = $pkg.version
-$exeName = "ClaudeEasyUse-$version-portable.exe"
-$exePath = Join-Path $repoRoot "release/$exeName"
+$unpackedDir = Join-Path $repoRoot 'release/win-unpacked'
 
-if (!(Test-Path $exePath)) {
-  throw "Portable executable not found: $exePath"
+if (!(Test-Path $unpackedDir)) {
+  throw "Unpacked app directory not found: $unpackedDir"
 }
 
-$bundleRoot = Join-Path $repoRoot 'release/portable-bundle'
-if (Test-Path $bundleRoot) {
-  Remove-Item -LiteralPath $bundleRoot -Recurse -Force
-}
-New-Item -ItemType Directory -Path $bundleRoot | Out-Null
-
-$bundleAppDir = Join-Path $bundleRoot 'ClaudeEasyUse'
-New-Item -ItemType Directory -Path $bundleAppDir | Out-Null
-Copy-Item -LiteralPath $exePath -Destination (Join-Path $bundleAppDir 'ClaudeEasyUse.exe') -Force
-
+$readmePath = Join-Path $unpackedDir 'README.txt'
 $readme = @"
-ClaudeEasyUse Portable
+ClaudeEasyUse Windows Build
 
 1. Keep Claude Code CLI installed on this PC.
-2. Double-click ClaudeEasyUse.exe to run.
+2. Run ClaudeEasyUse.exe directly.
 3. Optional path override for Claude CLI:
    set CLAUDE_PATH=C:\\Users\\<User>\\AppData\\Roaming\\npm\\claude.cmd
 
@@ -42,17 +32,17 @@ Notes:
 - This package is portable: unzip and run directly.
 - Logs are in %APPDATA%\\ClaudeEasyUse\\logs.
 "@
-$readme | Set-Content -Encoding utf8 (Join-Path $bundleAppDir 'README.txt')
+$readme | Set-Content -Encoding utf8 $readmePath
 
-$zipName = "ClaudeEasyUse-$version-win-x64-portable.zip"
+$zipName = "ClaudeEasyUse-$version-win-x64-unpacked.zip"
 $zipPath = Join-Path $repoRoot "release/$zipName"
 if (Test-Path $zipPath) {
   Remove-Item -LiteralPath $zipPath -Force
 }
 
 Write-Host "==> Creating zip: $zipPath"
-Compress-Archive -Path (Join-Path $bundleRoot '*') -DestinationPath $zipPath -CompressionLevel Optimal
+Compress-Archive -Path $unpackedDir -DestinationPath $zipPath -CompressionLevel Optimal
 
 Write-Host '==> Done'
-Write-Host "EXE: $exePath"
+Write-Host "EXE: $(Join-Path $unpackedDir 'ClaudeEasyUse.exe')"
 Write-Host "ZIP: $zipPath"
